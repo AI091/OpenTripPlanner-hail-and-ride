@@ -15,6 +15,8 @@ import org.opentripplanner.ext.dataoverlay.configuration.DataOverlayParameterBin
 import org.opentripplanner.ext.flex.FlexParameters;
 import org.opentripplanner.ext.ridehailing.RideHailingService;
 import org.opentripplanner.ext.sorlandsbanen.SorlandsbanenNorwayService;
+import org.opentripplanner.ext.hailandride.HailAndRideDirect;
+import org.opentripplanner.ext.hailandride.HailAndRideRouter;
 import org.opentripplanner.framework.application.OTPFeature;
 import org.opentripplanner.model.plan.Itinerary;
 import org.opentripplanner.raptor.RaptorService;
@@ -176,6 +178,15 @@ public class TransitRouter {
       ? transitService.getRaptorTransitData()
       : transitService.getRealtimeRaptorTransitData();
     var requestTransitDataProvider = createRequestTransitDataProvider(raptorTransitData);
+    var hailAndRideRouter = OTPFeature.HailAndRide.isOn() && !request.isStartOnBoardAccessRequest()
+      ? new HailAndRideRouter(
+          graph,
+          transitService,
+          request,
+          requestTransitDataProvider,
+          linkingContext
+        )
+      : null;
     var fetchAccessEgress = new AccessEgressFetcher(
       request,
       transitService,
@@ -189,7 +200,8 @@ public class TransitRouter {
       additionalSearchDays,
       linkingContext,
       carpoolingService,
-      requestTransitDataProvider
+      requestTransitDataProvider,
+      hailAndRideRouter
     );
 
     debugTimingAggregator.finishedPatternFiltering();
@@ -281,6 +293,18 @@ public class TransitRouter {
     );
 
     List<Itinerary> itineraries = paths.stream().map(itineraryMapper::createItinerary).toList();
+
+    if (hailAndRideRouter != null && !request.arriveBy()) {
+      itineraries = new ArrayList<>(itineraries);
+      itineraries.addAll(
+        HailAndRideDirect.itineraries(
+          hailAndRideRouter,
+          itineraryMapper.hailAndRideLegMapper(),
+          request,
+          raptorRequest.searchParams().earliestDepartureTime()
+        )
+      );
+    }
 
     debugTimingAggregator.finishedItineraryCreation();
 

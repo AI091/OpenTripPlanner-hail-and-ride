@@ -140,6 +140,12 @@ public enum OTPFeature {
   FaresV2(false, true, "Enable import of GTFS-Fares v2 data."),
   FlexRouting(false, true, "Enable FLEX routing."),
   GoogleCloudStorage(false, true, "Enable Google Cloud Storage integration."),
+  HailAndRide(
+    false,
+    true,
+    "Let riders board and alight frequency-based trips anywhere along the route shape (hail-and-ride / continuous stopping), " +
+      "not only at stops. Adds per-request access, egress and direct legs that start or end between stops."
+  ),
   MultiCriteriaGroupMaxFilter(
     false,
     false,

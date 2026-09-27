@@ -135,4 +135,35 @@ class StopPatternTest {
     assertEquals(PickDrop.SCHEDULED, updated.getDropoff(1));
     assertEquals(PickDrop.CANCELLED, updated.getDropoff(2));
   }
+
+  /** Hail-and-ride: continuous_pickup/drop_off are kept per stop position and survive copies. */
+  @Test
+  void continuousPickupDropOff() {
+    var s1 = testModel.stop("1", 60.0, 11.0).build();
+    var s2 = testModel.stop("2", 61.0, 11.0).build();
+    var s3 = testModel.stop("3", 62.0, 11.0).build();
+    Trip t = TransitRepositoryForTest.trip("trip").build();
+
+    var st1 = testModel.stopTime(t, 0, s1);
+    st1.setFlexContinuousPickup(PickDrop.SCHEDULED);
+    st1.setFlexContinuousDropOff(PickDrop.COORDINATE_WITH_DRIVER);
+    var st2 = testModel.stopTime(t, 1, s2);
+    var st3 = testModel.stopTime(t, 2, s3);
+
+    var pattern = new StopPattern(List.of(st1, st2, st3));
+    assertEquals(PickDrop.SCHEDULED, pattern.getContinuousPickup(0));
+    assertEquals(PickDrop.COORDINATE_WITH_DRIVER, pattern.getContinuousDropOff(0));
+    assertEquals(PickDrop.NONE, pattern.getContinuousPickup(1));
+    assertEquals(PickDrop.NONE, pattern.getContinuousDropOff(1));
+
+    // Same stops, no continuous stopping: a different pattern
+    var plain = new StopPattern(
+      List.of(testModel.stopTime(t, 0, s1), testModel.stopTime(t, 1, s2), st3)
+    );
+    assertFalse(pattern.equals(plain));
+
+    // Real-time style copy keeps the flags
+    var copy = pattern.copyOf().updateDropoffs(Map.of(2, PickDrop.CANCELLED)).build();
+    assertEquals(PickDrop.SCHEDULED, copy.getContinuousPickup(0));
+  }
 }

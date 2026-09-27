@@ -48,16 +48,36 @@ public final class StopPattern implements Serializable {
   private final PickDrop[] pickups;
   private final PickDrop[] dropoffs;
 
+  /**
+   * GTFS continuous_pickup / continuous_drop_off of the stop_time at each position. It applies to
+   * the segment from this stop to the next one (hail-and-ride). NONE if not set. Only used by the
+   * HailAndRide sandbox feature; Raptor does not read it.
+   */
+  private final PickDrop[] continuousPickups;
+  private final PickDrop[] continuousDropOffs;
+
   private StopPattern(int size) {
     stops = new StopLocation[size];
     pickups = new PickDrop[size];
     dropoffs = new PickDrop[size];
+    continuousPickups = new PickDrop[size];
+    continuousDropOffs = new PickDrop[size];
+    Arrays.fill(continuousPickups, PickDrop.NONE);
+    Arrays.fill(continuousDropOffs, PickDrop.NONE);
   }
 
-  private StopPattern(StopLocation[] stops, PickDrop[] pickups, PickDrop[] dropoffs) {
+  private StopPattern(
+    StopLocation[] stops,
+    PickDrop[] pickups,
+    PickDrop[] dropoffs,
+    PickDrop[] continuousPickups,
+    PickDrop[] continuousDropOffs
+  ) {
     this.stops = stops;
     this.pickups = pickups;
     this.dropoffs = dropoffs;
+    this.continuousPickups = continuousPickups;
+    this.continuousDropOffs = continuousDropOffs;
   }
 
   /** Assumes that stopTimes are already sorted by time. */
@@ -76,6 +96,8 @@ public final class StopPattern implements Serializable {
       // pick/drop messages could be stored in individual trips
       pickups[i] = computePickDrop(stopTime.getStop(), stopTime.getPickupType());
       dropoffs[i] = computePickDrop(stopTime.getStop(), stopTime.getDropOffType());
+      continuousPickups[i] = stopTime.getFlexContinuousPickup();
+      continuousDropOffs[i] = stopTime.getFlexContinuousDropOff();
     }
   }
 
@@ -105,6 +127,10 @@ public final class StopPattern implements Serializable {
     hash += Arrays.hashCode(this.pickups);
     hash *= 31;
     hash += Arrays.hashCode(this.dropoffs);
+    hash *= 31;
+    hash += Arrays.hashCode(this.continuousPickups);
+    hash *= 31;
+    hash += Arrays.hashCode(this.continuousDropOffs);
     return hash;
   }
 
@@ -114,7 +140,9 @@ public final class StopPattern implements Serializable {
       return (
         Arrays.equals(this.stops, that.stops) &&
         Arrays.equals(this.pickups, that.pickups) &&
-        Arrays.equals(this.dropoffs, that.dropoffs)
+        Arrays.equals(this.dropoffs, that.dropoffs) &&
+        Arrays.equals(this.continuousPickups, that.continuousPickups) &&
+        Arrays.equals(this.continuousDropOffs, that.continuousDropOffs)
       );
     } else {
       return false;
@@ -196,6 +224,22 @@ public final class StopPattern implements Serializable {
 
   PickDrop getDropoff(int stopPosInPattern) {
     return dropoffs[stopPosInPattern];
+  }
+
+  /**
+   * GTFS continuous_pickup of the stop_time at this position: may riders wave the vehicle down
+   * anywhere between this stop and the next one?
+   */
+  public PickDrop getContinuousPickup(int stopPosInPattern) {
+    return continuousPickups[stopPosInPattern];
+  }
+
+  /**
+   * GTFS continuous_drop_off of the stop_time at this position: may riders get off anywhere
+   * between this stop and the next one?
+   */
+  public PickDrop getContinuousDropOff(int stopPosInPattern) {
+    return continuousDropOffs[stopPosInPattern];
   }
 
   /** Returns whether passengers can alight at a given stop */
@@ -408,12 +452,20 @@ public final class StopPattern implements Serializable {
         var newStopPattern = new StopPattern(
           stops.build(realTime.stops),
           pickups.build(realTime.pickups),
-          dropoffs.build(realTime.dropoffs)
+          dropoffs.build(realTime.dropoffs),
+          original.continuousPickups,
+          original.continuousDropOffs
         );
         return realTime.equals(newStopPattern) ? realTime : newStopPattern;
       }
 
-      return new StopPattern(stops.build(), pickups.build(), dropoffs.build());
+      return new StopPattern(
+        stops.build(),
+        pickups.build(),
+        dropoffs.build(),
+        original.continuousPickups,
+        original.continuousDropOffs
+      );
     }
   }
 }

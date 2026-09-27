@@ -11,6 +11,8 @@ import org.opentripplanner.core.model.basic.Cost;
 import org.opentripplanner.core.model.i18n.NonLocalizedString;
 import org.opentripplanner.ext.carpooling.internal.CarpoolItineraryMapper;
 import org.opentripplanner.ext.carpooling.routing.CarpoolAccessEgress;
+import org.opentripplanner.ext.hailandride.HailAndRideAccessEgress;
+import org.opentripplanner.ext.hailandride.HailAndRideLegMapper;
 import org.opentripplanner.framework.application.OTPFeature;
 import org.opentripplanner.framework.model.TimeAndCost;
 import org.opentripplanner.model.GenericLocation;
@@ -73,6 +75,7 @@ public class RaptorPathToItineraryMapper<T extends TripSchedule> {
   private final StreetPathToLegsMapper streetPathToLegsMapper;
   private final TransitService transitService;
   private final CarpoolItineraryMapper carpoolItineraryMapper;
+  private final HailAndRideLegMapper hailAndRideLegMapper;
 
   /**
    * Constructs an itinerary mapper for a request and a set of results
@@ -103,6 +106,16 @@ public class RaptorPathToItineraryMapper<T extends TripSchedule> {
     );
     this.transitService = transitService;
     this.carpoolItineraryMapper = new CarpoolItineraryMapper();
+    this.hailAndRideLegMapper = new HailAndRideLegMapper(
+      streetPathToLegsMapper,
+      request,
+      transitSearchTimeZero
+    );
+  }
+
+  /** Street-path mapper shared with sandbox code that builds its own legs (hail-and-ride). */
+  public HailAndRideLegMapper hailAndRideLegMapper() {
+    return hailAndRideLegMapper;
   }
 
   public Itinerary createItinerary(RaptorPath<T> path) {
@@ -207,6 +220,11 @@ public class RaptorPathToItineraryMapper<T extends TripSchedule> {
       return carpoolItineraryMapper
         .toItinerary((CarpoolAccessEgress) accessPathLeg.access())
         .legs();
+    }
+
+    var hailAndRide = HailAndRideAccessEgress.find(accessPathLeg.access());
+    if (hailAndRide.isPresent()) {
+      return hailAndRideLegMapper.mapAccessEgress(hailAndRide.get(), accessPathLeg.fromTime());
     }
 
     int fromTime = accessPathLeg.fromTime();
@@ -356,6 +374,11 @@ public class RaptorPathToItineraryMapper<T extends TripSchedule> {
       return carpoolItineraryMapper
         .toItinerary((CarpoolAccessEgress) egressPathLeg.egress())
         .legs();
+    }
+
+    var hailAndRide = HailAndRideAccessEgress.find(egressPathLeg.egress());
+    if (hailAndRide.isPresent()) {
+      return hailAndRideLegMapper.mapAccessEgress(hailAndRide.get(), egressPathLeg.fromTime());
     }
 
     var startTime = createZonedDateTime(egressPathLeg.fromTime());

@@ -14,6 +14,7 @@ import org.opentripplanner.ext.carpooling.CarpoolingService;
 import org.opentripplanner.ext.dataoverlay.configuration.DataOverlayParameterBindings;
 import org.opentripplanner.ext.dataoverlay.routing.DataOverlayContext;
 import org.opentripplanner.ext.flex.FlexParameters;
+import org.opentripplanner.ext.hailandride.HailAndRideRouter;
 import org.opentripplanner.ext.ridehailing.RideHailingAccessShifter;
 import org.opentripplanner.ext.ridehailing.RideHailingService;
 import org.opentripplanner.framework.application.OTPFeature;
@@ -65,6 +66,9 @@ class AccessEgressFetcher {
   private final TripScheduleIndexResolver tripScheduleIndexResolver;
   private final TripLocationResolver tripLocationResolver;
 
+  @Nullable
+  private final HailAndRideRouter hailAndRideRouter;
+
   /**
    * Creates an {@code AccessEgressFetcher} for a single route request.
    *
@@ -86,8 +90,10 @@ class AccessEgressFetcher {
     AdditionalSearchDays additionalSearchDays,
     LinkingContext linkingContext,
     CarpoolingService carpoolingService,
-    RaptorRoutingRequestTransitData requestTransitDataProvider
+    RaptorRoutingRequestTransitData requestTransitDataProvider,
+    @Nullable HailAndRideRouter hailAndRideRouter
   ) {
+    this.hailAndRideRouter = hailAndRideRouter;
     this.request = request;
     this.transitService = transitService;
     this.graph = graph;
@@ -209,6 +215,14 @@ class AccessEgressFetcher {
       );
 
       results.addAll(AccessEgressMapper.mapFlexAccessEgresses(flexAccessList));
+    }
+
+    // Hail-and-ride: walk to anywhere along a route, wave the vehicle down, ride to a stop (access),
+    // or ride from a stop and get off anywhere near the destination (egress).
+    if (hailAndRideRouter != null && mode == StreetMode.WALK) {
+      results.addAll(
+        type.isAccess() ? hailAndRideRouter.findAccess() : hailAndRideRouter.findEgress()
+      );
     }
 
     if (OTPFeature.CarPooling.isOn() && mode == StreetMode.CARPOOL) {

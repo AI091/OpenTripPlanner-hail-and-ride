@@ -1,3 +1,5 @@
+> **WIP: adding support for hail-and-ride to OTP.** Riders can board and alight anywhere along a route on frequency-based trips where the GTFS feed allows it (`continuous_pickup` / `continuous_drop_off` in `stop_times.txt`). Enable the `HailAndRide` feature in `otp-config.json`. Code: `application/src/ext/java/org/opentripplanner/ext/hailandride/`.
+
 ## Overview
 
 [![Join the chat at https://gitter.im/opentripplanner/OpenTripPLanner](https://badges.gitter.im/opentripplanner/OpenTripPlanner.svg)](https://gitter.im/opentripplanner/OpenTripPlanner)

@@ -10,6 +10,7 @@ import org.opentripplanner.core.model.id.FeedScopedId;
 import org.opentripplanner.core.model.time.LocalDateRange;
 import org.opentripplanner.ext.fares.service.gtfs.v1.GtfsFareServiceFactory;
 import org.opentripplanner.ext.flex.FlexTripsMapper;
+import org.opentripplanner.ext.hailandride.HailAndRideTransferPoints;
 import org.opentripplanner.framework.application.OTPFeature;
 import org.opentripplanner.graph_builder.issue.api.DataImportIssueStore;
 import org.opentripplanner.graph_builder.model.GraphBuilderModule;
@@ -144,6 +145,12 @@ public class GtfsModule implements GraphBuilderModule {
         }
 
         validateAndInterpolateStopTimesForEachTrip(builder.getStopTimesSortedByTrip(), issueStore);
+
+        // Hail-and-ride: add transfer stops where continuous-stopping routes meet, so that Raptor
+        // can change vehicles there. Must run before trip patterns are created.
+        if (OTPFeature.HailAndRide.isOn()) {
+          HailAndRideTransferPoints.run(builder, graph, feedId);
+        }
 
         // We need to run this after the cleaning of the data, as stop indices might have changed
         mapper.mapAndAddTransfersToBuilder(gtfsDao);
